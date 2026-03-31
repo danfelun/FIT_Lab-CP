@@ -1,0 +1,105 @@
+services:
+  db:
+    image: mysql:5.7
+    container_name: lab-db
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      TZ: ${TZ}
+    ports:
+      - "${MYSQL_PORT}:3306"
+    volumes:
+      - db_data:/var/lib/mysql
+      - ./mysql/init:/docker-entrypoint-initdb.d:ro
+    networks:
+      - lab_net
+
+  phpmyadmin:
+    image: phpmyadmin:5.2-apache
+    container_name: lab-phpmyadmin
+    restart: unless-stopped
+    depends_on:
+      - db
+    environment:
+      PMA_HOST: db
+      PMA_PORT: 3306
+      PMA_USER: root
+      PMA_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      UPLOAD_LIMIT: 256M
+    ports:
+      - "${PHPMYADMIN_PORT}:80"
+    networks:
+      - lab_net
+    profiles:
+      - optional
+
+  fit:
+    build:
+      context: ./sites/fit
+    container_name: lab-fit
+    restart: unless-stopped
+    depends_on:
+      - db
+    environment:
+      JOOMLA_DB_HOST: db
+      JOOMLA_DB_NAME: ${CMS_DB_NAME}
+      JOOMLA_DB_USER: ${CMS_DB_USER}
+      JOOMLA_DB_PASSWORD: ${CMS_DB_PASSWORD}
+      TZ: ${TZ}
+    ports:
+      - "${FIT_PORT}:80"
+    volumes:
+      - ./sites/FIT:/var/www/html
+    networks:
+      - lab_net
+
+  portalacademico:
+    build:
+      context: ./sites/portalacademico
+    container_name: lab-portalacademico
+    restart: unless-stopped
+    depends_on:
+      - db
+    environment:
+      DB_HOST: db
+      DB_NAME: ${PORTAL_DB_NAME}
+      DB_USER: ${PORTAL_DB_USER}
+      DB_PASSWORD: ${PORTAL_DB_PASSWORD}
+      TZ: ${TZ}
+    ports:
+      - "${PORTAL_PORT}:80"
+    volumes:
+      - ./sites/portalacademico-app:/var/www/html
+    networks:
+      - lab_net
+
+  attacker:
+     build:
+      context: ./tools/attacker
+     container_name: lab-atacante
+     stdin_open: true
+     tty: true
+     networks:
+      - lab_net
+     profiles:
+      - attacker
+
+  ova:
+    image: nginx:1.24
+    container_name: lab-ova
+    restart: unless-stopped
+    ports:
+      - "${OVA_PORT}:80"
+    volumes:
+      - ./sites/ova:/usr/share/nginx/html:ro
+      - ./sites/ova/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    networks:
+      - lab_net
+
+
+networks:
+  lab_net:
+    driver: bridge
+
+volumes:
+  db_data:
