@@ -15,10 +15,10 @@
 
 Este laboratorio permite simular un entorno controlado de pruebas de seguridad ofensiva, donde los estudiantes podrán:
 
-- Identificar servicios expuestos  
-- Analizar superficie de ataque  
-- Detectar vulnerabilidades en aplicaciones web  
-- Ejecutar pruebas de explotación controladas  
+- Identificar servicios expuestos
+- Analizar superficie de ataque
+- Detectar vulnerabilidades en aplicaciones web
+- Ejecutar pruebas de explotación controladas
 
 El entorno está completamente basado en contenedores Docker, lo que permite su despliegue rápido, reproducible y portable.
 
@@ -28,14 +28,14 @@ El entorno está completamente basado en contenedores Docker, lo que permite su 
 
 ```mermaid
 flowchart LR
-    A[🖥️ Contenedor Atacante<br/>Nmap + Metasploit]
+    A["Maquina atacante<br/>Nmap + Metasploit"]
 
-    subgraph Infraestructura del Laboratorio
-        B[🌐 Aplicación CMS<br/>Apache + PHP]
-        C[🎓 Aplicación Web Vulnerable<br/>SQL Injection]
-        D[🌍 Servicio Web<br/>NGINX]
-        E[(🗄️ Base de Datos MySQL)]
-        F[🧰 phpMyAdmin<br/>(Opcional)]
+    subgraph LAB["Infraestructura del Laboratorio"]
+        B["CMS<br/>Apache + PHP"]
+        C["Aplicacion Web Vulnerable<br/>SQL Injection"]
+        D["OVA<br/>NGINX"]
+        E[("Base de Datos MySQL")]
+        F["phpMyAdmin<br/>(Opcional)"]
     end
 
     A --> B
@@ -64,9 +64,9 @@ flowchart LR
 
 ## ⚙️ Requisitos
 
-- Docker  
-- Docker Compose  
-- Git  
+- Docker
+- Docker Compose
+- Git
 
 ---
 
@@ -79,27 +79,22 @@ git clone https://github.com/danfelun/lab-fit-cp.git
 cd lab-fit-cp
 ```
 
----
+### 2. Configuración de variables de entorno
 
-### 2. Configuración de variables de entorno (IMPORTANTE)
+Antes de ejecutar el laboratorio, configure el archivo de variables de entorno:
 
 ```bash
 cp .env.example .env
-```
-
-Editar:
-
-```bash
 nano .env
 ```
 
-👉 Ajuste credenciales y configuraciones necesarias.
+Ajuste allí las credenciales, nombres de bases de datos y demás parámetros del entorno.
 
 ⚠️ Este paso es obligatorio.
 
----
-
 ### 3. Construcción y despliegue
+
+Escenario base:
 
 ```bash
 docker compose up -d --build
@@ -111,7 +106,7 @@ Contenedor atacante:
 docker compose --profile attacker up -d --build
 ```
 
-Opcionales:
+Servicios opcionales:
 
 ```bash
 docker compose --profile optional up -d --build
@@ -121,13 +116,19 @@ docker compose --profile optional up -d --build
 
 ## 🧪 Uso del laboratorio
 
+Acceso al contenedor atacante:
+
 ```bash
-docker exec -it lab-attacker sh
+docker exec -it lab-atacante sh
 ```
+
+Ejemplo de reconocimiento:
 
 ```bash
 nmap -sV <objetivo>
 ```
+
+Ejecutar Metasploit:
 
 ```bash
 msfconsole
@@ -137,20 +138,32 @@ msfconsole
 
 ## 🎯 Enfoque pedagógico
 
-- Descubrimiento activo de servicios  
-- Identificación de tecnologías  
-- Relación vulnerabilidad ↔ servicio  
-- Explotación controlada  
+Este laboratorio está diseñado para que el estudiante:
+
+- Descubra servicios y puertos por sí mismo
+- Analice diferencias entre tecnologías
+- Identifique malas prácticas de configuración
+- Relacione vulnerabilidades con servicios expuestos
+- Comprenda el impacto real de una explotación
 
 ---
 
 ## ⚠️ Consideraciones de seguridad
 
-Uso exclusivo educativo.  
-No exponer a internet.
+Este laboratorio contiene vulnerabilidades intencionales.
+
+- No debe exponerse a internet
+- Debe ejecutarse únicamente en entornos controlados
+- Su uso es exclusivamente educativo
 
 ---
 
-## 🧩 Tecnologías
+## 🧩 Tecnologías utilizadas
 
-Docker, Apache, NGINX, MySQL, Nmap, Metasploit
+- Docker & Docker Compose
+- Apache + PHP
+- NGINX
+- MySQL
+- phpMyAdmin
+- Nmap
+- Metasploit Framework
