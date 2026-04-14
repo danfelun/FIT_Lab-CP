@@ -97,6 +97,20 @@ services:
       - lab_net
 
 
+  apache_vuln:
+    build:
+      context: ./sites/apache-vuln
+    container_name: lab-apache-vuln
+    restart: unless-stopped
+    ports:
+      - "${DOS_PORT}:80"
+    networks:
+      - lab_net
+    profiles:
+      - attacker
+
+
+
 networks:
   lab_net:
     driver: bridge
