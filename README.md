@@ -179,6 +179,12 @@ nmap --version
 msfconsole
 ```
 
+### Ejemplo de reconocimiento interno
+
+```bash
+nmap -sV <objetivo>
+```
+
 ### Flujo sugerido de demostración en vivo
 
 1. Verificar que el servicio vulnerable responde normalmente.
@@ -192,28 +198,6 @@ msfconsole
 
 - En el primer momento se muestra que una detección no equivale automáticamente a una explotación válida.
 - En el segundo momento se demuestra una explotación preparada sobre un objetivo realmente vulnerable.
-
----
-
-## 🧪 Uso general del laboratorio
-
-### Acceso al contenedor atacante
-
-```bash
-docker exec -it lab-atacante sh
-```
-
-### Ejemplo de reconocimiento interno
-
-```bash
-nmap -sV <objetivo>
-```
-
-### Ejecución de Metasploit
-
-```bash
-msfconsole
-```
 
 ---
 
