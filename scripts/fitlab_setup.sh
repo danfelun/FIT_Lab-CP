@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # =============================================================================
-#  FIT_Lab-CP — Script de despliegue automatizado
+#  FIT_StackCP — Script de despliegue automatizado
 #  Autor:  Adaptado para uso pedagógico en posgrado de Seguridad Informática
-#  Repo:   https://github.com/danfelun/FIT_Lab-CP
+#  Repo:   https://github.com/danfelun/FIT_StackCP
 #  SO:     Ubuntu Server 22.04 LTS / 24.04 LTS
 #  Uso:    sudo bash fitlab_setup.sh
 # =============================================================================
@@ -18,11 +18,11 @@ BOLD='\033[1m'
 NC='\033[0m'
 
 # ─── Variables configurables ──────────────────────────────────────────────────
-REPO_URL="https://github.com/danfelun/FIT_Lab-CP.git"
-INSTALL_DIR="/opt/fitlab"
-SERVICE_NAME="fitlab"
+REPO_URL="https://github.com/danfelun/FIT_StackCP.git"
+INSTALL_DIR="/opt/fitstackcp"
+SERVICE_NAME="fitstackcp"
 SERVICE_FILE="/etc/systemd/system/${SERVICE_NAME}.service"
-LOG_FILE="/var/log/fitlab_setup.log"
+LOG_FILE="/var/log/fitstackcp_setup.log"
 
 # ─── Funciones de salida ──────────────────────────────────────────────────────
 log()     { echo -e "${CYAN}[INFO]${NC}  $*" | tee -a "$LOG_FILE"; }
@@ -128,8 +128,36 @@ $(lsb_release -cs) stable" \
 
     # Habilitar y arrancar el daemon de Docker
     log "Habilitando Docker en el arranque del sistema..."
+
+    # ── Configurar pool de IPs de Docker para evitar overlapping con la LAN ──
+    DOCKER_DAEMON_FILE="/etc/docker/daemon.json"
+    log "Configurando segmento de red por defecto de Docker: 100.100.0.0/16"
+    if [[ -f "$DOCKER_DAEMON_FILE" ]]; then
+        # Si ya existe daemon.json, agregar la clave sin destruir la configuración previa
+        warn "daemon.json ya existe. Agregando default-address-pools manualmente."
+        # Verificar si la clave ya está presente
+        if grep -q "default-address-pools" "$DOCKER_DAEMON_FILE"; then
+            warn "default-address-pools ya configurado en daemon.json — no se modifica."
+        else
+            # Insertar antes del último "}" del JSON
+            sed -i 's/}[[:space:]]*$/,\n  "default-address-pools": [\n    {"base": "100.100.0.0\/16", "size": 24}\n  ]\n}/' \
+                "$DOCKER_DAEMON_FILE"
+            ok "default-address-pools agregado al daemon.json existente."
+        fi
+    else
+        cat > "$DOCKER_DAEMON_FILE" <<'EOF'
+{
+  "default-address-pools": [
+    {"base": "100.100.0.0/16", "size": 24}
+  ]
+}
+EOF
+        ok "daemon.json creado con pool 100.100.0.0/16 (subredes /24 por red)."
+    fi
+
     systemctl enable docker --quiet
-    systemctl start docker
+    systemctl restart docker
+    log "Docker daemon reiniciado con nueva configuración de red."
 
     # Agregar el usuario invocador (el que usó sudo) al grupo docker
     REAL_USER="${SUDO_USER:-}"
@@ -168,6 +196,20 @@ clone_repository() {
     chown -R "$REAL_USER":"$REAL_USER" "$INSTALL_DIR" 2>/dev/null || true
 
     ok "Repositorio disponible en $INSTALL_DIR"
+
+    # ── Copiar .env.example → .env (preservar configuración base del repo) ──
+    if [[ -f "$INSTALL_DIR/.env" ]]; then
+        log "Ya existe un archivo .env — no se sobreescribe."
+    elif [[ -f "$INSTALL_DIR/.env.example" ]]; then
+        cp "$INSTALL_DIR/.env.example" "$INSTALL_DIR/.env"
+        chown "$REAL_USER":"$REAL_USER" "$INSTALL_DIR/.env"
+        ok "Archivo .env creado desde .env.example (configuración base del repo)."
+        log "Puertos y variables activos:"
+        grep -v '^\s*#' "$INSTALL_DIR/.env" | grep -v '^\s*$' | tee -a "$LOG_FILE" || true
+    else
+        warn "No se encontró .env.example en el repositorio."
+        warn "Verifica que el compose file no requiera variables de entorno sin definir."
+    fi
 
     # Mostrar estructura del proyecto
     log "Estructura del proyecto:"
@@ -274,8 +316,8 @@ create_systemd_service() {
 
     cat > "$SERVICE_FILE" <<EOF
 [Unit]
-Description=FIT Lab — Stack de contenedores vulnerables (laboratorio pedagogico)
-Documentation=https://github.com/danfelun/FIT_Lab-CP
+Description=FIT StackCP — Stack de contenedores vulnerables (laboratorio pedagogico)
+Documentation=https://github.com/danfelun/FIT_StackCP
 After=docker.service network-online.target
 Wants=network-online.target
 Requires=docker.service
@@ -355,7 +397,7 @@ main() {
     echo "  ██║     ██║   ██║       ███████╗██║  ██║██████╔╝"
     echo "  ╚═╝     ╚═╝   ╚═╝       ╚══════╝╚═╝  ╚═╝╚═════╝ "
     echo -e "${NC}"
-    echo -e "  ${BOLD}Script de despliegue — FIT_Lab-CP${NC}"
+    echo -e "  ${BOLD}Script de despliegue — FIT_StackCP  [v3]${NC}"
     echo -e "  Laboratorio de Pentesting — Posgrado en Seguridad Informática"
     echo -e "  Repositorio: $REPO_URL"
     echo ""
