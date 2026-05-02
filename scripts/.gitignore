@@ -1,0 +1,5 @@
+# Ignorar todas las versiones del script
+scripts/fitlab_setup_v*.sh
+
+# PERMITIR explícitamente el archivo oficial
+!scripts/fitlab_setup.sh
