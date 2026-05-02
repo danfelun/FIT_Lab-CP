@@ -24,6 +24,12 @@ SERVICE_NAME="fitstackcp"
 SERVICE_FILE="/etc/systemd/system/${SERVICE_NAME}.service"
 LOG_FILE="/var/log/fitstackcp_setup.log"
 
+# ── Usuario señuelo para ataques de diccionario (Hydra / Medusa) ──────────────
+#    La contraseña DEBE existir en rockyou.txt (Kali/Parrot: /usr/share/wordlists/)
+#    Cambia estos valores ANTES de ejecutar el script si deseas credenciales distintas
+USUARIO_DIC="george"
+CONTRASENA_DIC="chocolate"
+
 # ─── Funciones de salida ──────────────────────────────────────────────────────
 log()     { echo -e "${CYAN}[INFO]${NC}  $*" | tee -a "$LOG_FILE"; }
 ok()      { echo -e "${GREEN}[OK]${NC}    $*" | tee -a "$LOG_FILE"; }
@@ -360,6 +366,105 @@ EOF
     fi
 }
 
+# ─── Etapa 7: Usuario señuelo + banner de login + mensaje de bienvenida ───────
+setup_decoy_user() {
+    section "Etapa 7 — Usuario señuelo y personalización del sistema"
+
+    # ── 7a. Crear el usuario señuelo ──────────────────────────────────────────
+    if id "$USUARIO_DIC" &>/dev/null; then
+        warn "El usuario '$USUARIO_DIC' ya existe — se actualizará su contraseña."
+    else
+        log "Creando usuario '$USUARIO_DIC'..."
+        useradd -m -s /bin/bash "$USUARIO_DIC"
+        ok "Usuario '$USUARIO_DIC' creado."
+    fi
+
+    log "Estableciendo contraseña para '$USUARIO_DIC'..."
+    echo "${USUARIO_DIC}:${CONTRASENA_DIC}" | chpasswd
+    ok "Contraseña establecida (presente en rockyou.txt)."
+
+    # Asegurar que el usuario NO tenga privilegios sudo
+    if groups "$USUARIO_DIC" | grep -qw sudo; then
+        gpasswd -d "$USUARIO_DIC" sudo 2>/dev/null || true
+        warn "Se removió a '$USUARIO_DIC' del grupo sudo por seguridad del laboratorio."
+    fi
+
+    log "Credenciales del usuario señuelo:"
+    log "  Usuario     : $USUARIO_DIC"
+    log "  Contraseña  : $CONTRASENA_DIC"
+
+    # ── 7b. Banner de login — /etc/issue ─────────────────────────────────────
+    log "Instalando banner de login en /etc/issue..."
+    # Respaldar el original
+    [[ -f /etc/issue ]] && cp /etc/issue /etc/issue.bak
+    cat > /etc/issue <<'ISSUE_EOF'
+
+███████╗███████╗███████╗███████╗███████╗███████╗███████╗███████╗███████╗███████╗███████╗
+╚══════╝╚══════╝╚══════╝╚══════╝╚══════╝╚══════╝╚══════╝╚══════╝╚══════╝╚══════╝╚══════╝
+
+                        ███████╗██╗████████╗     ██████╗██████╗
+                        ██╔════╝██║╚══██╔══╝    ██╔════╝██╔══██╗
+                        █████╗  ██║   ██║       ██║     ██████╔╝
+                        ██╔══╝  ██║   ██║       ██║     ██╔═══╝
+                        ██║     ██║   ██║       ╚██████╗██║
+                        ╚═╝     ╚═╝   ╚═╝        ╚═════╝╚═╝
+
+        ██████╗  ██████╗ ██████╗        ██████╗ ███████╗██████╗ ██╗
+        ██╔══██╗██╔═══██╗██╔══██╗██╗    ██╔══██╗██╔════╝██╔══██╗██║
+        ██████╔╝██║   ██║██████╔╝╚═╝    ██║  ██║█████╗  ██████╔╝██║
+        ██╔═══╝ ██║   ██║██╔══██╗██╗    ██║  ██║██╔══╝  ██╔═══╝ ██║
+        ██║     ╚██████╔╝██║  ██║╚═╝    ██████╔╝██║     ██║     ███████╗
+        ╚═╝      ╚═════╝ ╚═╝  ╚═╝       ╚═════╝ ╚═╝     ╚═╝     ╚══════╝
+
+███████╗███████╗███████╗███████╗███████╗███████╗███████╗███████╗███████╗███████╗███████╗
+╚══════╝╚══════╝╚══════╝╚══════╝╚══════╝╚══════╝╚══════╝╚══════╝╚══════╝╚══════╝╚══════╝
+
+
+ \l
+
+ISSUE_EOF
+    ok "Banner /etc/issue instalado."
+
+    # También aplicar a /etc/issue.net (sesiones SSH remotas)
+    cp /etc/issue /etc/issue.net
+    ok "Banner /etc/issue.net sincronizado (sesiones SSH)."
+
+    # ── 7c. Mensaje de bienvenida al iniciar sesión — .profile del usuario ────
+    log "Instalando .profile personalizado para '$USUARIO_DIC'..."
+    PROFILE_PATH="/home/${USUARIO_DIC}/.profile"
+    # Respaldar si existe
+    [[ -f "$PROFILE_PATH" ]] && cp "$PROFILE_PATH" "${PROFILE_PATH}.bak"
+
+    cat > "$PROFILE_PATH" <<'PROFILE_EOF'
+# ~/.profile — FIT_StackCP | Usuario de laboratorio
+if [ -n "$BASH_VERSION" ]; then
+    if [ -f "$HOME/.bashrc" ]; then
+        . "$HOME/.bashrc"
+    fi
+fi
+
+if [ -d "$HOME/bin" ] ; then
+    PATH="$HOME/bin:$PATH"
+fi
+
+if [ -d "$HOME/.local/bin" ] ; then
+    PATH="$HOME/.local/bin:$PATH"
+fi
+
+echo "  "
+echo "======================================="
+echo "  "
+echo "  Muy bien! Te felicito por lo logrado, ten en cuenta que "
+echo "  siempre la constancia supera al talento. Practica todos los días."
+echo "  "
+echo "======================================="
+PROFILE_EOF
+
+    chown "${USUARIO_DIC}:${USUARIO_DIC}" "$PROFILE_PATH"
+    chmod 644 "$PROFILE_PATH"
+    ok ".profile instalado para '$USUARIO_DIC'."
+}
+
 # ─── Resumen final ────────────────────────────────────────────────────────────
 print_summary() {
     section "Despliegue completado"
@@ -373,6 +478,11 @@ print_summary() {
     echo ""
     echo -e "${BOLD}  Contenedores activos:${NC}"
     docker ps --format "  • {{.Names}}\t{{.Status}}\t{{.Ports}}" 2>/dev/null || true
+    echo ""
+    echo -e "${BOLD}  Usuario señuelo (diccionario):${NC}"
+    echo -e "  Usuario     :  $USUARIO_DIC"
+    echo -e "  Contraseña  :  $CONTRASENA_DIC"
+    echo -e "  Ataque Hydra:  hydra -l $USUARIO_DIC -P /usr/share/wordlists/rockyou.txt ssh://<IP_VM>"
     echo ""
     echo -e "${BOLD}${CYAN}  Comandos de operación útiles:${NC}"
     echo -e "  Ver estado del stack    :  docker compose -f $INSTALL_DIR/$COMPOSE_FILE ps"
@@ -397,7 +507,7 @@ main() {
     echo "  ██║     ██║   ██║       ███████╗██║  ██║██████╔╝"
     echo "  ╚═╝     ╚═╝   ╚═╝       ╚══════╝╚═╝  ╚═╝╚═════╝ "
     echo -e "${NC}"
-    echo -e "  ${BOLD}Script de despliegue — FIT_StackCP  [v3]${NC}"
+    echo -e "  ${BOLD}Script de despliegue — FIT_StackCP  [v4]${NC}"
     echo -e "  Laboratorio de Pentesting — Posgrado en Seguridad Informática"
     echo -e "  Repositorio: $REPO_URL"
     echo ""
@@ -409,6 +519,7 @@ main() {
     verify_stack
     test_stack
     create_systemd_service
+    setup_decoy_user
     print_summary
 }
 
